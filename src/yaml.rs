@@ -347,8 +347,11 @@ impl<'a> From<&'a str> for YamlIndex<'a> {
 }
 
 impl Yaml {
-    pub fn get(&self, idx: YamlIndex) -> Option<&Yaml> {
-        match idx {
+    pub fn get<'a, T>(&self, idx: T) -> Option<&Yaml>
+    where
+        T: Into<YamlIndex<'a>>,
+    {
+        match idx.into() {
             YamlIndex::Str(idx) => {
                 let key = Yaml::String(idx.to_owned());
                 match self.as_hash() {
@@ -369,8 +372,11 @@ impl Yaml {
         }
     }
 
-    pub fn get_mut(&mut self, idx: YamlIndex) -> Option<&mut Yaml> {
-        match idx {
+    pub fn get_mut<'a, T>(&mut self, idx: T) -> Option<&mut Yaml>
+    where
+        T: Into<YamlIndex<'a>>,
+    {
+        match idx.into() {
             YamlIndex::Str(idx) => {
                 let key = Yaml::String(idx.to_owned());
                 match self.as_hash_mut() {
@@ -378,18 +384,14 @@ impl Yaml {
                     None => None,
                 }
             }
-            YamlIndex::USize(idx) => {
-                match *self {
-                    Yaml::Array(ref mut v) => {
-                        v.get_mut(idx)
-                    }
-                    Yaml::Hash(ref mut v) => {
-                        let key = Yaml::Integer(idx as i64);
-                        v.get_mut(&key)
-                    }
-                    _ => None
+            YamlIndex::USize(idx) => match *self {
+                Yaml::Array(ref mut v) => v.get_mut(idx),
+                Yaml::Hash(ref mut v) => {
+                    let key = Yaml::Integer(idx as i64);
+                    v.get_mut(&key)
                 }
-            }
+                _ => None,
+            },
         }
     }
 }
@@ -820,7 +822,7 @@ subcommands3:
     #[test]
     fn test_usize_index_mut_ref() {
         let mut v = Yaml::Array(vec![Yaml::Integer(42), Yaml::String("foo".to_string())]);
-        let foo_ref = v.get_mut(1.into()).unwrap();
+        let foo_ref = v.get_mut(1).unwrap();
         *foo_ref = Yaml::Boolean(true);
         assert_eq!(v[1].as_bool().unwrap(), true);
     }
@@ -829,10 +831,13 @@ subcommands3:
     fn test_str_index_mut_ref() {
         let mut v = Yaml::Hash(Hash::new());
         if let Some(h) = v.as_hash_mut() {
-            h.insert(Yaml::String("foo".to_string()), Yaml::String("bar".to_string()));
+            h.insert(
+                Yaml::String("foo".to_string()),
+                Yaml::String("bar".to_string()),
+            );
         }
         assert_eq!(v["foo"].as_str().unwrap(), "bar");
-        let foo_val = v.get_mut("foo".into()).unwrap();
+        let foo_val = v.get_mut("foo").unwrap();
         *foo_val = Yaml::Integer(42);
         assert_eq!(v["foo"].as_i64().unwrap(), 42);
     }
